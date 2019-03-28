@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, task2, pprint
+import sys, task02, pprint
 
 # in:
 # 1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736
@@ -49,7 +49,7 @@ def get_printables(inbytes):
   out = list()
   for i in range(0x100):
     xor_bytes = int.to_bytes(i, 1, sys.byteorder) * len(inbytes)
-    maybe_p = task2.xor_2_bytes(inbytes, xor_bytes)
+    maybe_p = task02.xor_2_bytes(inbytes, xor_bytes)
     if printable(maybe_p):
       out.append(maybe_p)
   return out

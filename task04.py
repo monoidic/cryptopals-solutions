@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import task3
+import task03
 
 # out:
 # Now that the party is jumping\n
@@ -14,8 +14,8 @@ if __name__ == '__main__':
   with open('4.txt') as fd:
     for line in fd:
       linebytes = bytes.fromhex(line)
-      pr_list = task3.get_printables(linebytes)
+      pr_list = task03.get_printables(linebytes)
       if pr_list:
         maybes += pr_list[:5]
-  likely = task3.least_symbols(maybes)
+  likely = task03.least_symbols(maybes)
   print(likely)

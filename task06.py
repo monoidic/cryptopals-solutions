@@ -7,7 +7,7 @@
 
 # key: b'Terminator X: Bring the noise' (not sticking the full output here)
 
-import sys, task3 #, task5
+import sys, task03 #, task05
 
 def hamming_bits(in1, in2):
   if type(in1) == type(in2) == bytes:
@@ -35,11 +35,11 @@ def find_keysize(input):
         result += hamming_bits(input[keysize*j + i], input[keysize*(j+1) + i])
     normalized_results.append(tuple([result / keysize, keysize]))
 #  return normalized_results
-  return task3.printsort(normalized_results)[0][1]
+  return task03.printsort(normalized_results)[0][1]
 
 
 if __name__ == '__main__':
-  import task2, base64
+  import task02, base64
 
   with open('6.txt') as fd:
     rawdata = fd.read()
@@ -54,12 +54,12 @@ if __name__ == '__main__':
     single_xor_chunks[i%keysize] += int.to_bytes(rawdata[i], 1, sys.byteorder)
   solved_chunks = list()
   for item in single_xor_chunks:
-    solved_chunks.append(task3.dostuff(item))
+    solved_chunks.append(task03.dostuff(item))
   solved = bytes()
   for i in range(len(rawdata)):
     x, y = i % keysize, i // keysize
     solved += int.to_bytes(solved_chunks[x][y], 1, sys.byteorder)
-  key = task2.xor_2_bytes(rawdata[:keysize], solved[:keysize])
+  key = task02.xor_2_bytes(rawdata[:keysize], solved[:keysize])
   print(f'Guessed key: {key}')
   print(solved.decode())
 
@@ -85,11 +85,11 @@ if __name__ == '__main__':
 
 #pprint.pprint(single_xor_chunks)
 
-#print(task3.dostuff(single_xor_chunks[0]))
+#print(task03.dostuff(single_xor_chunks[0]))
 
 #xored_chunks = list()
 #for chunk in single_xor_chunks:
-#  xored_chunks.append(task3.dostuff(chunk))
+#  xored_chunks.append(task03.dostuff(chunk))
 #
 #out = bytes()
 #for i in range(KEYSIZE):
@@ -104,13 +104,13 @@ if __name__ == '__main__':
 #with open('6.bin', 'rb') as fd:
 #  data = fd.read()
 #
-#print(task5.repeating_key_xor(data, b'Terminator X: Bring the noise').decode())
+#print(task05.repeating_key_xor(data, b'Terminator X: Bring the noise').decode())
 
 #input = bytes()
 #with open('6.bin', 'rb') as fd:
 #  input = fd.read()
 #results = find_keysize(input)
-#results = sorted(results, key=task3.tuple_sort, reverse=True)
+#results = sorted(results, key=task03.tuple_sort, reverse=True)
 #result_keysizes = list()
 #for item in results:
 #  result_keysizes.append(item[1])
