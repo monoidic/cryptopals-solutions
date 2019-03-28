@@ -14,6 +14,13 @@ def my_cbc(indata, key, IV):
     IV = cipherblock
   return plain
 
+def depkcs7(indata):
+  assert type(indata) == bytes
+  num = indata[-1]
+  if indata[-num:] == bytes([num]) * num:
+    return indata[:-num]
+  return indata
+
 
 if __name__ == '__main__':
   key, zeroes_IV = b'YELLOW SUBMARINE', bytes(16) #????
@@ -21,4 +28,5 @@ if __name__ == '__main__':
     rawdata = fd.read()
     rawdata = base64.b64decode(rawdata)
   plain = my_cbc(rawdata, key, zeroes_IV)
-  print(plain.decode())
+  plain = depkcs7(plain)
+  print(plain)

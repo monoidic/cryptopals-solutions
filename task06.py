@@ -60,7 +60,7 @@ if __name__ == '__main__':
     x, y = i % keysize, i // keysize
     solved += int.to_bytes(solved_chunks[x][y], 1, sys.byteorder)
   key = task02.xor_2_bytes(rawdata[:keysize], solved[:keysize])
-  print(f'Guessed key: {key}')
+  print(f'Guessed key: {key}\n\n')
   print(solved.decode())
 
 
