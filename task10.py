@@ -29,4 +29,4 @@ if __name__ == '__main__':
     rawdata = base64.b64decode(rawdata)
   plain = my_cbc(rawdata, key, zeroes_IV)
   plain = depkcs7(plain)
-  print(plain)
+  print(plain.decode())

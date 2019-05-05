@@ -1,45 +1,12 @@
 #!/usr/bin/env python3
 
-# to get hamming function:
-# in1 XOR in2, count differing bits with bitshifts to get hamming distance
-#
-# verification: hamming('this is a test', 'wokka wokka!!!') == 37
-
 # key: b'Terminator X: Bring the noise' (not sticking the full output here)
 
-import sys, task03 #, task05
-
-def hamming_bits(in1, in2):
-  if type(in1) == type(in2) == bytes:
-    assert len(in1) == len(in2)
-    in1 = int.from_bytes(in1, sys.byteorder)
-    in2 = int.from_bytes(in1, sys.byteorder)
-  assert type(in1) == type(in2) == int
-
-  diff = in1 ^ in2
-  out = 0
-  while diff:
-    out += diff & 1
-    diff >>= 1
-  return out
-
-def find_keysize(input):
-  assert type(input) == bytes
-  assert len(input) >= 800
-
-  normalized_results = list()
-  for keysize in range(2, 40):
-    result = 0
-    for i in range(keysize):
-      for j in range(20):
-        result += hamming_bits(input[keysize*j + i], input[keysize*(j+1) + i])
-    normalized_results.append(tuple([result / keysize, keysize]))
-#  return normalized_results
-  return task03.printsort(normalized_results)[0][1]
-
+from mystuff import printsort, find_keysize
 
 if __name__ == '__main__':
-  import task02, base64
+  import base64, sys
+  from mystuff import xor_2_bytes, least_symbols_printable
 
   with open('6.txt') as fd:
     rawdata = fd.read()
@@ -51,15 +18,15 @@ if __name__ == '__main__':
   for i in range(keysize):
     single_xor_chunks.append(bytes())
   for i in range(len(rawdata)):
-    single_xor_chunks[i%keysize] += int.to_bytes(rawdata[i], 1, sys.byteorder)
+    single_xor_chunks[i%keysize] += bytes([rawdata[i]])
   solved_chunks = list()
   for item in single_xor_chunks:
-    solved_chunks.append(task03.dostuff(item))
+    solved_chunks.append(least_symbols_printable(item))
   solved = bytes()
   for i in range(len(rawdata)):
     x, y = i % keysize, i // keysize
-    solved += int.to_bytes(solved_chunks[x][y], 1, sys.byteorder)
-  key = task02.xor_2_bytes(rawdata[:keysize], solved[:keysize])
+    solved += bytes([solved_chunks[x][y]])
+  key = xor_2_bytes(rawdata[:keysize], solved[:keysize])
   print(f'Guessed key: {key}\n\n')
   print(solved.decode())
 
