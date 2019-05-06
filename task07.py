@@ -3,6 +3,8 @@
 import base64
 #from Crypto.Cipher import AES
 
+#TODO: key schedule
+
 def euclid_div(a, mod):
   return _euclid_divmod(a, mod)[0]
 
@@ -110,28 +112,29 @@ def ShiftRow(inbytes):
     out += circular_shift(inbytes[i*4:(i+1)*4], i)
   return out
 
-def MixColumn(inbytes):
-  assert type(inbytes) == bytes and len(inbytes) == 4
-
-  mult_column = []
-
-  for i in range(4):
-    mult_column.append((inbytes[i] << 1) & 0xff)
-    if inbytes[i] & 0x80:
-      mult_column[i] ^= 0x1b
+def MixColumn(b, reverse=False):
+  assert type(b) == bytes and len(b) == 4
 
   out = []
+  if not reverse:
+    m = [2, 1, 1, 3]
+  else:
+    m = [14, 9, 13, 11]
+
   for i in range(4):
-    out.append(inbytes[(i+1)%4] ^ inbytes[(i+2)%4] ^ inbytes[(i+3)%4] ^ mult_column[i] ^ mult_column[(i+1)%4])
+    d = galois_mult(m[i], b[0]) ^ galois_mult(m[(i+3)%4], b[1])
+    d ^= galois_mult(m[(i+2)%4], b[2]) ^ galois_mult(m[(i+1)%4], b[3])
+    out.append(d)
   return bytes(out)
 
-def MixColumns(inbytes):
+
+def MixColumns(inbytes, reverse=False):
   assert type(inbytes) == bytes and len(inbytes) == 16
 
   outrows = [ [] ] * 4
   for i in range(4):
     column = [inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]]
-    mixedcolumn = MixColumn(column)
+    mixedcolumn = MixColumn(column, reverse)
     for j in range(4):
       outrows[j].append(mixedcolumn[j])
 
