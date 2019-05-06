@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import base64, sys, task02
+import base64, mystuff
 from Crypto.Cipher import AES
 
 def my_cbc(indata, key, IV):
@@ -10,7 +10,7 @@ def my_cbc(indata, key, IV):
   for i in range(len(indata) // len(key)):
     cipherblock = rawdata[i*len(key):(i+1)*len(key)]
     preplain = cipher.decrypt(cipherblock)
-    plain += task02.xor_2_bytes(preplain, IV)
+    plain += mystuff.xor_2_bytes(preplain, IV)
     IV = cipherblock
   return plain
 
