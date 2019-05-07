@@ -5,6 +5,14 @@ import base64
 
 #TODO: key schedule
 
+def xor_bytes(inb1, inb2):
+  assert type(inb1) == type(inb2) == bytes
+  assert len(inb1) == len(inb2)
+  out = []
+  for i in range(len(inb1)):
+    out.append(inb1[i] ^ inb2[i])
+  return bytes(out)
+
 def euclid_div(a, mod):
   return _euclid_divmod(a, mod)[0]
 
@@ -74,6 +82,28 @@ def galois_mult(in1, in2, mod=0x11b):
 
   return euclid_mod(out, mod)
 
+def roundconst(i):
+  assert type(i) == int
+  return int.to_bytes(euclid_mod(1 << (i-1), 0x11b), 4, 'little')
+
+def gen_keys(key):	#only AES-128 atm
+  assert type(key) == bytes and len(key) == 16
+  outwords = []
+  for i in range(0, 16, 4):
+    outwords.append(key[i:i+4])
+  for i in range(4, 44):
+    word = outwords[i-4]
+    if i % 4 == 0:
+      word = xor_bytes(SubBytes(circular_shift(outwords[i-1], 1)), word)
+      word = xor_bytes(roundconst(i // 4), word)
+    else:
+      word = xor_bytes(outwords[i-1], word)
+    outwords.append(word)
+  out = []
+  for i in range(0, len(outwords), 4):
+    out.append(outwords[i] + outwords[i+1] + outwords[i+2] + outwords[i+3])
+  return out
+
 
 def SubBytes(inbytes, reverse=False):
   assert type(inbytes) == bytes
@@ -92,11 +122,11 @@ def SubBytes(inbytes, reverse=False):
   return bytes(out)
 
 
-def ShiftRow(inbytes):
+def ShiftRows(inbytes, reverse=False):
   assert type(inbytes) == bytes and len(inbytes) == 16
   out = b''
   for i in range(4):
-    out += circular_shift(inbytes[i*4:(i+1)*4], i)
+    out += circular_shift(inbytes[i*4:(i+1)*4], i, not reverse)
   return out
 
 def MixColumn(b, reverse=False):
@@ -118,9 +148,9 @@ def MixColumn(b, reverse=False):
 def MixColumns(inbytes, reverse=False):
   assert type(inbytes) == bytes and len(inbytes) == 16
 
-  outrows = [ [] ] * 4
+  outrows = [ [], [], [], [] ]
   for i in range(4):
-    column = [inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]]
+    column = bytes([inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]])
     column = MixColumn(column, reverse)
     for j in range(4):
       outrows[j].append(column[j])
@@ -131,10 +161,32 @@ def MixColumns(inbytes, reverse=False):
 
   return bytes(out)
 
+def aes128_ecb_enc(key, block):
+  assert type(key) == type(block) == bytes
+  assert len(key) == len(block) == 16
+
+  keys = gen_keys(key)
+  state = xor_bytes(keys[0], block)
+  for i in range(1, 10):
+    state = SubBytes(state)
+    state = ShiftRows(state)
+    state = MixColumns(state)
+    state = xor_bytes(keys[i], state)
+
+  state = SubBytes(state)
+  state = ShiftRows(state)
+  state = xor_bytes(keys[10], state)
+  return state
+
 
 def myaesenc(key, plaintext):	#TODO: actually write it lol
   assert type(key) == type(plaintext) == bytes
-  pass
+  assert len(key) == 16 and len(plaintext) % 16 == 0
+
+  out = b''
+  for i in range(0, len(plaintext), 16):
+    out += aes128_ecb_enc(key, plaintext[i:i+16])
+  return out
 
 def myaesdec(key, ciphertext):	#TODO: actually write it lol
   assert type(key) == type(ciphertext) == bytes
