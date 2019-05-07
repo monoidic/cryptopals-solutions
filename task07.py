@@ -24,21 +24,8 @@ def _euclid_divmod(a, mod):
     bit -= 1
   return (div, a)
 
-
-#def bezout_identity(a, b):
-#  assert type(a) == type(b) == int
-#  r, r1 = b, a
-#  s, s1 = 0, 1
-#  t, t1 = 1, 0
-#  while r != 0:
-#    q = r1 // r
-#    r1, r = r, r1 % r
-#    s1, s = s, s1 - q * s
-#    t1, t = t, t1 - q * t
-#  return (s1, t1)
-
 def ff_reverse(a, mod=0x11b):
-  assert type(a) == type(mod) == int
+  assert type(a) == type(mod) == int and a in range(0x100)
   t, t1 = 1, 0
   s, s1 = 0, 1
   r, r1 = a, mod
@@ -62,17 +49,17 @@ def circular_shift(value, shift, size=None, lshift=True):
     shift %= size
     return value[shift:] + value[:shift]
 
-
   assert value < (1 << size)
   shift %= size
   mask = (1 << shift) - 1
-  offset = (size - mask.bit_length()) % size
+  offset = (size - shift) % size
   if lshift:
-    mask <<= offset
-  mask &= value
-  if lshift:
-    return ((value << shift) % (1 << size)) ^ (mask >> offset)
-  return (value >> shift) ^ (mask << offset)
+    mask = ((mask << offset) & value) >> offset
+    unmasked = (value << shift) % (1 << size)
+  else:
+    mask = (mask & value) << offset
+    unmasked = value >> shift
+  return mask ^ unmasked
 
 def galois_mult(in1, in2, mod=0x11b):
   assert type(in1) == type(in2) == type(mod) == int
@@ -90,23 +77,23 @@ def galois_mult(in1, in2, mod=0x11b):
 
 def SubBytes(inbytes, reverse=False):
   assert type(inbytes) == bytes
-  out = b''
+  out = []
   if reverse:
     for i in inbytes:
       b = circular_shift(i, 1, 8) ^ circular_shift(i, 3, 8) ^ circular_shift(i, 6, 8) ^ 0x5
-      out += bytes([ff_reverse(b)])
+      out.append(ff_reverse(b))
   else:
     for i in inbytes:
       b = ff_reverse(i)
       s = b ^ 0x63
       for j in range(1, 5):
         s ^= circular_shift(b, j, 8)
-      out += bytes([s])
-  return out
+      out.append(s)
+  return bytes(out)
 
 
 def ShiftRow(inbytes):
-  assert type(inbytes) == bytes
+  assert type(inbytes) == bytes and len(inbytes) == 16
   out = b''
   for i in range(4):
     out += circular_shift(inbytes[i*4:(i+1)*4], i)
@@ -116,10 +103,10 @@ def MixColumn(b, reverse=False):
   assert type(b) == bytes and len(b) == 4
 
   out = []
-  if not reverse:
-    m = [2, 1, 1, 3]
-  else:
+  if reverse:
     m = [14, 9, 13, 11]
+  else:
+    m = [2, 1, 1, 3]
 
   for i in range(4):
     d = galois_mult(m[i], b[0]) ^ galois_mult(m[(i+3)%4], b[1])
@@ -134,15 +121,15 @@ def MixColumns(inbytes, reverse=False):
   outrows = [ [] ] * 4
   for i in range(4):
     column = [inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]]
-    mixedcolumn = MixColumn(column, reverse)
+    column = MixColumn(column, reverse)
     for j in range(4):
-      outrows[j].append(mixedcolumn[j])
+      outrows[j].append(column[j])
 
-  out = b''
+  out = []
   for row in outrows:
-    out += bytes(row)
+    out += row
 
-  return out
+  return bytes(out)
 
 
 def myaesenc(key, plaintext):	#TODO: actually write it lol
@@ -159,7 +146,7 @@ if __name__ == '__main__':
 
   with open('7.txt') as fd:
     rawdata = fd.read()
-    rawdata = base64.b64decode(rawdata)
+  rawdata = base64.b64decode(rawdata)
 
 #  cipher = AES.new(key, AES.MODE_ECB)
 #  out = cipher.decrypt(rawdata).decode()
