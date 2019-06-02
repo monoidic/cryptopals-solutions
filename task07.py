@@ -1,25 +1,36 @@
 #!/usr/bin/env python3
 
-import base64
 #from Crypto.Cipher import AES
 
-#TODO: key schedule
+# TODO: ff class?
 
-def xor_bytes(inb1, inb2):
-  assert type(inb1) == type(inb2) == bytes
-  assert len(inb1) == len(inb2)
-  out = []
-  for i in range(len(inb1)):
-    out.append(inb1[i] ^ inb2[i])
-  return bytes(out)
+class Mybytes(bytes):
+  def __xor__(self, arg):
+    if not isinstance(arg, bytes):
+      raise TypeError(f'{arg} is not of a bytes type')
+    if len(self) != len(arg):
+      raise ValuError('unmatching lengths')
 
-def euclid_div(a, mod):
-  return _euclid_divmod(a, mod)[0]
+    out = []
+    for i in range(len(arg)):
+      out.append(self[i] ^ arg[i])
+    return Mybytes(out)
 
-def euclid_mod(a, mod):
-  return _euclid_divmod(a,mod)[1]
+  def __add__(self, arg):
+    return Mybytes(super().__add__(arg))
 
-def _euclid_divmod(a, mod):
+  def __getitem__(self, arg):
+    if isinstance(arg, int):
+      return super().__getitem__(arg)
+    return Mybytes(super().__getitem__(arg))
+
+def ff_div(a, mod):
+  return ff_divmod(a, mod)[0]
+
+def ff_mod(a, mod):
+  return ff_divmod(a,mod)[1]
+
+def ff_divmod(a, mod):
   assert type(a) == type(mod) == int
   bit = a.bit_length() - 1
   modlength = mod.bit_length() - 1
@@ -32,13 +43,27 @@ def _euclid_divmod(a, mod):
     bit -= 1
   return (div, a)
 
-def ff_reverse(a, mod=0x11b):
-  assert type(a) == type(mod) == int and a in range(0x100)
+def galois_mult(in1, in2, mod=0x11b):
+  assert type(in1) == type(in2) == type(mod) == int
+  assert in1 >= 0 and in2 >= 0
+
+  out = 0
+  mult = 0
+  while in1 != 0:
+    if in1 & 1:
+      out ^= in2 << mult
+    in1 >>= 1
+    mult += 1
+
+  return ff_mod(out, mod)
+
+def ff_reverse(a):
+  assert type(a) == int and a in range(0x100)
   t, t1 = 1, 0
   s, s1 = 0, 1
-  r, r1 = a, mod
+  r, r1 = a, 0x11b
   while r != 0:
-    q = euclid_div(r1, r)
+    q = ff_div(r1, r)
     r1, r = r, r1 ^ galois_mult(r, q, 0x200)
     s1, s = s, s1 ^ galois_mult(s, q, 0x200)
     t1, t = t, t1 ^ galois_mult(t, q, 0x200)
@@ -48,9 +73,9 @@ def circular_shift(value, shift, size=None, lshift=True):
   # value: int or bytes, shift (int, n of bits for int, n of bytes for bytes),
   # size (int, unneeded for bytes, in bits for int), lshift=False for rshift
   assert type(shift) == int
-  assert type(value) == bytes or (type(value) == type(size) == int)
+  assert isinstance(value, bytes) or (type(value) == type(size) == int)
 
-  if type(value) == bytes:
+  if isinstance(value, bytes):
     size = len(value)
     if not lshift:
       shift = size - shift
@@ -69,44 +94,12 @@ def circular_shift(value, shift, size=None, lshift=True):
     unmasked = value >> shift
   return mask ^ unmasked
 
-def galois_mult(in1, in2, mod=0x11b):
-  assert type(in1) == type(in2) == type(mod) == int
-
-  out = 0
-  mult = 0
-  while in1 > 0:
-    if in1 & 1:
-      out ^= in2 << mult
-    in1 >>= 1
-    mult += 1
-
-  return euclid_mod(out, mod)
-
-def roundconst(i):
+def rcon(i):
   assert type(i) == int
-  return int.to_bytes(euclid_mod(1 << (i-1), 0x11b), 4, 'little')
-
-def gen_keys(key):	#only AES-128 atm
-  assert type(key) == bytes and len(key) == 16
-  outwords = []
-  for i in range(0, 16, 4):
-    outwords.append(key[i:i+4])
-  for i in range(4, 44):
-    word = outwords[i-4]
-    if i % 4 == 0:
-      word = xor_bytes(SubBytes(circular_shift(outwords[i-1], 1)), word)
-      word = xor_bytes(roundconst(i // 4), word)
-    else:
-      word = xor_bytes(outwords[i-1], word)
-    outwords.append(word)
-  out = []
-  for i in range(0, len(outwords), 4):
-    out.append(outwords[i] + outwords[i+1] + outwords[i+2] + outwords[i+3])
-  return out
-
+  return Mybytes(int.to_bytes(ff_mod(1 << (i-1), 0x11b), 4, 'little'))
 
 def SubBytes(inbytes, reverse=False):
-  assert type(inbytes) == bytes
+  assert isinstance(inbytes, bytes)
   out = []
   if reverse:
     for i in inbytes:
@@ -119,18 +112,43 @@ def SubBytes(inbytes, reverse=False):
       for j in range(1, 5):
         s ^= circular_shift(b, j, 8)
       out.append(s)
-  return bytes(out)
+  return Mybytes(out)
 
+def gen_keys(key):	#only AES-128 atm
+  N = 4 # n of 32-bit words per key
+  R = 11 # n of rounds
+  assert isinstance(key, bytes) and len(key) == 4*N
 
-def ShiftRows(inbytes, reverse=False):
-  assert type(inbytes) == bytes and len(inbytes) == 16
-  out = b''
-  for i in range(4):
-    out += circular_shift(inbytes[i*4:(i+1)*4], i, not reverse)
+  SubWord = SubBytes
+  RotWord = lambda x: circular_shift(x, 1)
+  outwords = []
+  for i in range(0, 4*N, 4): # first round key == input key
+    outwords.append(key[i:i+4])
+  for i in range(4, N*R): # other round keys
+    word = Mybytes(outwords[i-N])
+    if i % N == 0:
+      word ^= SubWord(RotWord(outwords[i-1]))
+      word ^= rcon(i // N)
+    else:
+      word ^= outwords[i-1]
+    outwords.append(word)
+  out = []
+  for i in range(0, len(outwords), N): # combine 32-bit words into full keys
+    ikey = Mybytes()
+    for j in range(N):
+      ikey += outwords[i+j]
+    out.append(ikey)
   return out
 
-def MixColumn(b, reverse=False):
-  assert type(b) == bytes and len(b) == 4
+def ShiftRows(inbytes, reverse=False):
+  assert isinstance(inbytes, bytes) and len(inbytes) == 16
+  out = Mybytes()
+  for i in range(4):
+    out += circular_shift(inbytes[i*4:(i+1)*4], i, lshift=(not reverse))
+  return Mybytes(out)
+
+def MixColumn(b, reverse=False): # TODO: reorder m?
+  assert isinstance(b, bytes) and len(b) == 4
 
   out = []
   if reverse:
@@ -139,18 +157,19 @@ def MixColumn(b, reverse=False):
     m = [2, 1, 1, 3]
 
   for i in range(4):
-    d = galois_mult(m[i], b[0]) ^ galois_mult(m[(i+3)%4], b[1])
-    d ^= galois_mult(m[(i+2)%4], b[2]) ^ galois_mult(m[(i+1)%4], b[3])
+    d = 0
+    for j in range(4):
+      d ^= galois_mult(m[(i-j)%4], b[j])
     out.append(d)
-  return bytes(out)
+  return Mybytes(out)
 
 
 def MixColumns(inbytes, reverse=False):
-  assert type(inbytes) == bytes and len(inbytes) == 16
+  assert isinstance(inbytes, bytes) and len(inbytes) == 16
 
-  outrows = [ [], [], [], [] ]
+  outrows = ( [], [], [], [] )
   for i in range(4):
-    column = bytes([inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]])
+    column = Mybytes([inbytes[i], inbytes[i+4], inbytes[i+8], inbytes[i+12]])
     column = MixColumn(column, reverse)
     for j in range(4):
       outrows[j].append(column[j])
@@ -159,41 +178,42 @@ def MixColumns(inbytes, reverse=False):
   for row in outrows:
     out += row
 
-  return bytes(out)
+  return Mybytes(out)
 
-def aes128_ecb_enc(key, block):
-  assert type(key) == type(block) == bytes
+def aes128_ecb_enc(key, block):		#TODO: doesn't work lol
+  assert isinstance(key, bytes) and isinstance(block, bytes)
   assert len(key) == len(block) == 16
 
   keys = gen_keys(key)
-  state = xor_bytes(keys[0], block)
+  state = keys[0] ^ block
   for i in range(1, 10):
     state = SubBytes(state)
     state = ShiftRows(state)
     state = MixColumns(state)
-    state = xor_bytes(keys[i], state)
+    state ^= keys[i]
 
   state = SubBytes(state)
   state = ShiftRows(state)
-  state = xor_bytes(keys[10], state)
+  state ^= keys[10]
   return state
 
 
-def myaesenc(key, plaintext):	#TODO: actually write it lol
+def myaesenc(key, plaintext):	#TODO: test after writing aes128_ecb_enc
   assert type(key) == type(plaintext) == bytes
   assert len(key) == 16 and len(plaintext) % 16 == 0
 
-  out = b''
+  out = Mybytes()
   for i in range(0, len(plaintext), 16):
     out += aes128_ecb_enc(key, plaintext[i:i+16])
   return out
 
-def myaesdec(key, ciphertext):	#TODO: actually write it lol
-  assert type(key) == type(ciphertext) == bytes
+def myaesdec(key, ciphertext):	#TODO: actually write it lol (then test)
+  assert isinstance(key, bytes) and isinstance(ciphertext, bytes)
   pass
 
 
 if __name__ == '__main__':
+  import base64
   key = b'YELLOW SUBMARINE'
 
   with open('7.txt') as fd:

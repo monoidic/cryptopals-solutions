@@ -25,10 +25,7 @@ def printable(inbytes):
   return True
 
 def printsort(inlist, rev=False):
-  def tuple_sort(intup):
-    return intup[0]
-
-  return sorted(inlist, key=tuple_sort, reverse=rev)
+  return sorted(inlist, key=lambda x: return x[0], reverse=rev)
 
 def least_symbols(inlist):
   assert type(inlist) == list
@@ -60,10 +57,11 @@ def get_printables(inbytes):
 
 def repeating_key_xor(inbytes, key):
   inlen, keylen = len(inbytes), len(key)
-  out = bytes()
+  out = []
   for i in range(inlen):
-    out += bytes([inbytes[i] ^ key[i%keylen]])
-  return out
+#    out += bytes([inbytes[i] ^ key[i%keylen]])
+    out.append(inbytes[i] ^ key[i%keylen])
+  return bytes(out)
 
 def least_symbols_printable(inbytes):
   return least_symbols(get_printables(inbytes))
@@ -75,12 +73,13 @@ def hamming_bits(in1, in2):
     in2 = int.from_bytes(in1, 'big')
   assert type(in1) == type(in2) == int
 
-  diff = in1 ^ in2
-  out = 0
-  while diff:
-    out += diff & 1
-    diff >>= 1
-  return out
+#  diff = in1 ^ in2
+#  out = 0
+#  while diff:
+#    out += diff & 1
+#    diff >>= 1
+  return f'{in1 ^ in2:b}'.count('1')
+#  return out
 
 def find_keysize(input):
   assert type(input) == bytes
