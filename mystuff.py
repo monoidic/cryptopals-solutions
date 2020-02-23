@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 import base64
+from Crypto.Cipher import AES
 
 def hex_to_b64(instr):
   return base64.b64encode(bytes.fromhex(instr))
 
 def xor_2_bytes(in1, in2):
   assert len(in1) == len(in2)
-  out = b''
-  for i in range(len(in1)):
-    out += bytes([in1[i] ^ in2[i]])
-  return out
+  assert isinstance(in1, bytes)
+  assert isinstance(in2, bytes)
+  return bytes(map(lambda x: x[0] ^ x[1], zip(in1, in2)))
 
 def printable(inbytes):
   assert type(inbytes) == bytes
@@ -25,7 +25,7 @@ def printable(inbytes):
   return True
 
 def printsort(inlist, rev=False):
-  return sorted(inlist, key=lambda x: return x[0], reverse=rev)
+  return sorted(inlist, key=lambda x: x[0], reverse=rev)
 
 def least_symbols(inlist):
   assert type(inlist) == list
@@ -56,11 +56,10 @@ def get_printables(inbytes):
   return out
 
 def repeating_key_xor(inbytes, key):
-  inlen, keylen = len(inbytes), len(key)
+  keylen = len(key)
   out = []
-  for i in range(inlen):
-#    out += bytes([inbytes[i] ^ key[i%keylen]])
-    out.append(inbytes[i] ^ key[i%keylen])
+  for i, v in enumerate(inbytes):
+    out.append(v ^ key[i%keylen])
   return bytes(out)
 
 def least_symbols_printable(inbytes):
@@ -94,3 +93,37 @@ def find_keysize(input):
     hamming_results.append(tuple([result / keysize, keysize]))
 #  return hamming_results
   return printsort(hamming_results)[0][1]
+
+def pkcs7_pad(input, blocksize):
+  assert type(input) == bytes
+  assert type(blocksize) == int and blocksize < 256
+  padsize = blocksize - len(input) % blocksize
+  if padsize == 0:
+    padsize = blocksize
+  padding = bytes([padsize]) * padsize
+  return input + padding
+
+def depkcs7(indata):
+  assert type(indata) == bytes
+  num = indata[-1]
+  return indata[:-num]
+
+def my_cbc_enc(input, key, IV):
+  blocksize = len(key)
+  assert not len(input) % blocksize
+
+  cipher_obj = AES.new(key, AES.MODE_ECB)
+  out = b''
+  for i in range(len(input) // blocksize):
+    block = input[i*blocksize:(i+1)*blocksize]
+    block = mystuff.xor_2_bytes(block, IV)
+    cipher = cipher_obj.encrypt(block)
+    IV = cipher
+    out += cipher
+  return out
+
+def my_ecb_enc(input, key):
+  blocksize = len(key)
+  assert not len(input) % blocksize
+
+  return AES.new(key, AES.MODE_ECB).encrypt(input)

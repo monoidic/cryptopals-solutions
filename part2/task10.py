@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-import base64, mystuff
 from Crypto.Cipher import AES
 
 def my_cbc(indata, key, IV):
   assert type(indata) == type(key) == type(IV) == bytes
   cipher = AES.new(key, AES.MODE_ECB)
-  plain = bytes()
+  plain = b''
   for i in range(len(indata) // len(key)):
     cipherblock = rawdata[i*len(key):(i+1)*len(key)]
     preplain = cipher.decrypt(cipherblock)
@@ -23,6 +22,7 @@ def depkcs7(indata):
 
 
 if __name__ == '__main__':
+  import base64, mystuff
   key, zeroes_IV = b'YELLOW SUBMARINE', bytes(16) #????
   with open('10.txt') as fd:
     rawdata = fd.read()
@@ -30,3 +30,5 @@ if __name__ == '__main__':
   plain = my_cbc(rawdata, key, zeroes_IV)
   plain = depkcs7(plain)
   print(plain.decode())
+
+print("su ema")
